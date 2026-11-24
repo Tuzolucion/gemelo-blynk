@@ -5,21 +5,25 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Gemelo virtual - Cañón Lab 4</title>
 <!--
-  GEMELO VIRTUAL DEL CAÑÓN (Widget HTML de Blynk)
+  GEMELO VIRTUAL Y MANDO DEL CAÑÓN (Widget HTML de Blynk)
   Pegar este archivo completo en: Blynk.Console > Developer Zone > Templates > (plantilla) >
   Web Dashboard > arrastrar "HTML" > Start from scratch.
-  En la configuración del widget, agregar los datastreams EN ESTE ORDEN (el índice importa):
-    0: V6 Elevación medida   1: V7 Rotación medida   2: V4 Elevación deseada
-    3: V5 Rotación deseada   4: V11 Estado
+  En la configuración del widget agregar estos datastreams (mejor en este orden):
+    0: V6 Elevación medida    1: V7 Rotación medida    2: V4 Elevación deseada
+    3: V5 Rotación deseada    4: V11 Estado            5: V0 Adelante
+    6: V1 Atrás               7: V2 Giro izquierda     8: V3 Giro derecha
+    9: V8 Disparar
+  El widget busca cada datastream por su pin (V0, V4...), así que si el orden queda distinto igual funciona.
+  Botones de movimiento: se mantienen presionados (también con las flechas o W A S D del teclado).
   Fuera de Blynk (abriendo el archivo en el navegador) funciona en modo demostración.
 -->
 <style>
   :root{--fondo:#0f1b2d;--panel:#16243a;--linea:#2a3b55;--texto:#e0e6ed;--tenue:#8296af;
         --cuerpo:#223046;--torre:#3d5a80;--torre2:#294060;--canon:#e0e6ed;--naranja:#f4a259;--verde:#5cc8a1;--rojo:#e76f6f}
-  *{box-sizing:border-box}
-  html,body{margin:0;height:100%;background:var(--fondo);color:var(--texto);
+  *{box-sizing:border-box;min-width:0}
+  html,body{margin:0;min-height:100%;background:var(--fondo);color:var(--texto);
             font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
-  .app{display:flex;flex-direction:column;height:100%;padding:12px;gap:10px;min-height:420px}
+  .app{display:flex;flex-direction:column;min-height:100vh;padding:12px;gap:10px}
   header{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
   h1{font-size:15px;margin:0;font-weight:650;letter-spacing:.2px;flex:1;min-width:160px}
   .chip{font-size:12px;padding:4px 10px;border-radius:999px;background:var(--panel);border:1px solid var(--linea);white-space:nowrap}
@@ -28,28 +32,46 @@
   .chip.error{border-color:var(--rojo);color:var(--rojo)}
   .punto{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px;background:var(--tenue);vertical-align:1px}
   .punto.on{background:var(--verde)}
-  .vistas{display:grid;grid-template-columns:1fr 1fr;gap:10px;flex:1;min-height:0}
-  @media (max-width:560px){.vistas{grid-template-columns:1fr}}
-  .vista{background:var(--panel);border:1px solid var(--linea);border-radius:12px;padding:8px 10px;display:flex;flex-direction:column;min-height:0}
-  .vista h2{font-size:12px;font-weight:600;color:var(--tenue);margin:0 0 4px;text-transform:uppercase;letter-spacing:.6px}
-  .vista svg{flex:1;width:100%;min-height:150px}
+  .vistas{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+  .vista,.tray,.mando{background:var(--panel);border:1px solid var(--linea);border-radius:12px}
+  .vista{padding:8px 10px;display:flex;flex-direction:column}
+  h2{font-size:12px;font-weight:600;color:var(--tenue);margin:0 0 4px;text-transform:uppercase;letter-spacing:.6px}
+  .vista svg{width:100%;height:auto;max-height:340px}
   .datos{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--tenue);margin-top:4px}
   .datos b{display:block;font-size:20px;color:var(--texto);font-variant-numeric:tabular-nums;font-weight:650}
   .datos .des b{color:var(--naranja)}
   .datos .err b{font-size:14px;margin-top:5px}
-  .tray{background:var(--panel);border:1px solid var(--linea);border-radius:12px;padding:6px 10px}
-  .tray .fila{display:flex;justify-content:space-between;font-size:12px;color:var(--tenue)}
+  .tray{padding:6px 10px}
+  .tray .fila{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--tenue)}
   .tray .lienzo{position:relative;height:70px}
   .tray svg{width:100%;height:70px;display:block}
   .tray svg *{vector-effect:non-scaling-stroke}
-  .tray .marca{position:absolute;bottom:4px;font-size:10px;color:var(--tenue);transform:translateX(-50%)}
+  .tray .marca{position:absolute;bottom:12px;font-size:10px;color:var(--tenue);transform:translateX(-50%)}
   .tray .caida{position:absolute;bottom:2px;width:9px;height:9px;border-radius:50%;background:var(--naranja);transform:translateX(-50%)}
-  .demo{display:none;gap:12px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--tenue);background:var(--panel);
-        border:1px dashed var(--linea);border-radius:12px;padding:8px 10px}
-  .demo.on{display:flex}
-  .demo label{display:flex;align-items:center;gap:6px}
-  .demo input{accent-color:var(--naranja)}
-  .demo button{background:var(--naranja);color:#1b1b1b;border:0;border-radius:8px;padding:6px 12px;font-weight:700;cursor:pointer}
+  .mando{padding:10px;display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:16px;align-items:center}
+  .mando h2{grid-column:1/-1;margin:0}
+  .cruz{display:grid;grid-template-columns:repeat(3,52px);grid-template-rows:repeat(3,52px);gap:6px}
+  .cruz button,.fuego{font:inherit;color:var(--texto);background:var(--cuerpo);border:1px solid var(--linea);border-radius:10px;
+        cursor:pointer;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+  .cruz button{font-size:22px;font-weight:700;display:grid;place-items:center}
+  .cruz button.on{background:var(--naranja);color:#1b1b1b;border-color:var(--naranja)}
+  .cruz button:focus-visible,.fuego:focus-visible,input:focus-visible{outline:2px solid var(--naranja);outline-offset:2px}
+  .cruz .centro{display:grid;place-items:center;font-size:10px;color:var(--tenue);text-align:center;line-height:1.2}
+  .b-adel{grid-area:1/2}.b-izq{grid-area:2/1}.b-der{grid-area:2/3}.b-atras{grid-area:3/2}.centro{grid-area:2/2}
+  .deslizadores{display:flex;flex-direction:column;gap:12px}
+  .deslizadores label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--tenue)}
+  .deslizadores .tit{display:flex;justify-content:space-between}
+  .deslizadores .tit b{color:var(--naranja);font-size:14px;font-variant-numeric:tabular-nums}
+  .deslizadores input{width:100%;height:28px;accent-color:var(--naranja)}
+  .fuego{width:96px;height:96px;border-radius:50%;background:var(--naranja);color:#1b1b1b;border:0;font-weight:800;font-size:14px;letter-spacing:.5px}
+  .fuego:active,.fuego.on{filter:brightness(.85);transform:scale(.97)}
+  .nota{font-size:11px;color:var(--tenue);grid-column:1/-1;margin:-6px 0 0}
+  @media (max-width:560px){
+    .vistas{grid-template-columns:minmax(0,1fr)}
+    .mando{grid-template-columns:auto minmax(0,1fr)}
+    .deslizadores{grid-column:1/-1;grid-row:3}
+    .fuego{justify-self:center}
+  }
 </style>
 </head>
 <body>
@@ -62,11 +84,13 @@
 
   <div class="vistas">
     <section class="vista">
-      <h2>Vista superior · rotación</h2>
+      <h2>Vista superior · rotación y ruedas</h2>
       <svg id="svgSup" viewBox="0 0 300 318" aria-label="Vista superior del vehículo y la torreta">
         <g id="anillo"></g>
         <g id="ruedasSup"></g>
         <rect x="95" y="80" width="110" height="160" rx="16" fill="var(--cuerpo)" stroke="var(--linea)" stroke-width="3"/>
+        <g id="flechaI" opacity="0"><path d="M62 128 L48 150 L58 150 L58 190 L66 190 L66 150 L76 150 Z" fill="var(--verde)"/></g>
+        <g id="flechaD" opacity="0"><path d="M238 128 L224 150 L234 150 L234 190 L242 190 L242 150 L252 150 Z" fill="var(--verde)"/></g>
         <path id="arcoRot" fill="none" stroke="var(--naranja)" stroke-width="3" stroke-opacity=".45"/>
         <g id="fantasmaSup" opacity=".85">
           <rect x="143" y="62" width="14" height="98" rx="3" fill="none" stroke="var(--naranja)" stroke-width="2" stroke-dasharray="5 4"/>
@@ -118,28 +142,45 @@
     <div class="lienzo" id="lienzo"><svg id="svgTray" viewBox="0 0 400 70" preserveAspectRatio="none"></svg><span class="caida" id="caida"></span></div>
   </section>
 
-  <div class="demo" id="demo">
-    <span>Modo demostración (fuera de Blynk):</span>
-    <label>Elevación <input type="range" id="dE" min="0" max="90" value="45"></label>
-    <label>Rotación <input type="range" id="dR" min="0" max="359" value="120"></label>
-    <button id="dF" type="button">Disparar</button>
-  </div>
+  <section class="mando" aria-label="Mando del vehículo y del cañón">
+    <h2>Mando</h2>
+    <div class="cruz">
+      <button type="button" class="b-adel" data-mov="adel" aria-label="Adelante">▲</button>
+      <button type="button" class="b-izq" data-mov="izq" aria-label="Girar a la izquierda" title="Girar a la izquierda">↺</button>
+      <span class="centro">Mantener<br>presionado</span>
+      <button type="button" class="b-der" data-mov="der" aria-label="Girar a la derecha" title="Girar a la derecha">↻</button>
+      <button type="button" class="b-atras" data-mov="atras" aria-label="Atrás">▼</button>
+    </div>
+    <div class="deslizadores">
+      <label for="slElev"><span class="tit">Elevación deseada <b id="slElevTxt">0°</b></span>
+        <input type="range" id="slElev" min="0" max="90" step="1" value="0"></label>
+      <label for="slRot"><span class="tit">Rotación deseada <b id="slRotTxt">0°</b></span>
+        <input type="range" id="slRot" min="0" max="359" step="1" value="0"></label>
+    </div>
+    <button type="button" class="fuego" id="btnFuego">DISPARAR</button>
+    <p class="nota" id="nota">Teclado: ↑ ↓ o W S para avanzar y retroceder, ← → o A D para girar, barra espaciadora para disparar.</p>
+  </section>
 </div>
 
 <script>
-(() => {
+{
   //------------------ Ajustes ------------------
   const V0 = 4.0;        //Velocidad de salida de la pelota (m/s): mídanla y ajústenla
   const ALTURA = 0.15;   //Altura de la boca del cañón sobre el piso (m)
   const G = 9.81;
-  //Índices de los datastreams en la configuración del widget
-  const I_ELEV = 0, I_ROT = 1, I_ELEV_SET = 2, I_ROT_SET = 3, I_ESTADO = 4;
+  //Pin de cada dato y su índice por defecto en la configuración del widget
+  const PIN = { elev: 'V6', rot: 'V7', elevSet: 'V4', rotSet: 'V5', estado: 'V11', adel: 'V0', atras: 'V1', izq: 'V2', der: 'V3', disp: 'V8' };
+  const ORDEN = ['elev', 'rot', 'elevSet', 'rotSet', 'estado', 'adel', 'atras', 'izq', 'der', 'disp'];
+  const MOVS = ['adel', 'atras', 'izq', 'der'];
 
   const $ = id => document.getElementById(id);
   const NS = 'http://www.w3.org/2000/svg';
-  const st = { elev: null, rot: null, elevSet: null, rotSet: null, estado: '', t: 0 };
-  const vis = { elev: 0, rot: 0, elevSet: 0, rotSet: 0 };
-  let disparo = null;
+  const st = { elev: null, rot: null, elevSet: null, rotSet: null, estado: '', t: 0, adel: 0, atras: 0, izq: 0, der: 0 };
+  const vis = { elev: 0, rot: 0, elevSet: 0, rotSet: 0, rI: 0, rD: 0 };
+  const presionado = { adel: false, atras: false, izq: false, der: false };
+  let disparo = null, arrastrandoE = false, arrastrandoR = false;
+  const demo = { disparo: false };
+  const indiceDe = {}; ORDEN.forEach((r, i) => (indiceDe[r] = i));
 
   //------------------ Dibujo estático ------------------
   function el(tag, attrs, padre) {
@@ -147,7 +188,7 @@
     for (const k in attrs) e.setAttribute(k, attrs[k]);
     padre.appendChild(e); return e;
   }
-  (function anillo() {
+  {
     const g = $('anillo');
     el('circle', { cx: 150, cy: 160, r: 128, fill: 'none', stroke: 'var(--linea)', 'stroke-width': 2 }, g);
     for (let a = 0; a < 360; a += 15) {
@@ -156,66 +197,123 @@
                    stroke: 'var(--tenue)', 'stroke-width': a % 90 === 0 ? 2.5 : 1.5 }, g);
     }
     [[0, 'FRENTE'], [90, '90°'], [180, '180°'], [270, '270°']].forEach(([a, t]) => {
-      const r = a * Math.PI / 180, x = 150 + 143 * Math.sin(r), y = 160 - 143 * Math.cos(r) + 4;
-      const tx = el('text', { x, y, 'text-anchor': 'middle', 'font-size': a === 0 ? 10 : 11, fill: 'var(--tenue)', 'font-weight': 600 }, g);
+      const r = a * Math.PI / 180;
+      const tx = el('text', { x: 150 + 143 * Math.sin(r), y: 160 - 143 * Math.cos(r) + 4, 'text-anchor': 'middle', 'font-size': a === 0 ? 10 : 11, fill: 'var(--tenue)', 'font-weight': 600 }, g);
       tx.textContent = t;
     });
     const w = $('ruedasSup');
     [[86, 96], [202, 96], [86, 186], [202, 186]].forEach(([x, y]) => el('rect', { x: x - 2, y, width: 16, height: 38, rx: 5, fill: '#14141a' }, w));
-  })();
-  (function transportador() {
-    const g = $('transportador'), cx = 145, cy = 156, R = 118;
-    el('path', { d: `M ${cx + R} ${cy} A ${R} ${R} 0 0 0 ${cx} ${cy - R}`, fill: 'none', stroke: 'var(--linea)', 'stroke-width': 2 }, g);
+    const p = $('transportador'), cx = 145, cy = 156, R = 118;
+    el('path', { d: `M ${cx + R} ${cy} A ${R} ${R} 0 0 0 ${cx} ${cy - R}`, fill: 'none', stroke: 'var(--linea)', 'stroke-width': 2 }, p);
     for (let a = 0; a <= 90; a += 10) {
       const r = a * Math.PI / 180, l = a % 30 === 0 ? 12 : 6;
       el('line', { x1: cx + R * Math.cos(r), y1: cy - R * Math.sin(r), x2: cx + (R - l) * Math.cos(r), y2: cy - (R - l) * Math.sin(r),
-                   stroke: 'var(--tenue)', 'stroke-width': a % 30 === 0 ? 2.5 : 1.5 }, g);
+                   stroke: 'var(--tenue)', 'stroke-width': a % 30 === 0 ? 2.5 : 1.5 }, p);
       if (a % 30 === 0) {
-        const t = el('text', { x: cx + (R + 14) * Math.cos(r), y: cy - (R + 14) * Math.sin(r) + 4, 'text-anchor': 'middle', 'font-size': 11, fill: 'var(--tenue)', 'font-weight': 600 }, g);
+        const t = el('text', { x: cx + (R + 14) * Math.cos(r), y: cy - (R + 14) * Math.sin(r) + 4, 'text-anchor': 'middle', 'font-size': 11, fill: 'var(--tenue)', 'font-weight': 600 }, p);
         t.textContent = a + '°';
       }
     }
-  })();
-  $('v0txt').textContent = V0.toFixed(1);
-  [1, 2, 3].forEach(m => { const t = document.createElement('span'); t.className = 'marca'; t.style.left = ((10 + m * 380 / 3.5) / 4) + '%'; t.style.bottom = '12px'; t.textContent = m + ' m'; $('lienzo').appendChild(t); });
+    $('v0txt').textContent = V0.toFixed(1);
+    [1, 2, 3].forEach(m => { const t = document.createElement('span'); t.className = 'marca'; t.style.left = ((10 + m * 380 / 3.5) / 4) + '%'; t.textContent = m + ' m'; $('lienzo').appendChild(t); });
+  }
 
-  //------------------ Datos ------------------
-  function aplicar(v) {
-    if (!v || typeof v.index !== 'number') return;
-    const x = parseFloat(v.value);
-    if (v.index === I_ELEV && !isNaN(x)) st.elev = x;
-    else if (v.index === I_ROT && !isNaN(x)) st.rot = x;
-    else if (v.index === I_ELEV_SET && !isNaN(x)) st.elevSet = x;
-    else if (v.index === I_ROT_SET && !isNaN(x)) st.rotSet = x;
-    else if (v.index === I_ESTADO) {
-      const nuevo = v.value || '';
+  //------------------ Datos que llegan ------------------
+  const rolDe = {}; ORDEN.forEach((r, i) => (rolDe[i] = r));
+  function aplicarRol(rol, valor) {
+    if (!rol) return;
+    const x = parseFloat(valor);
+    if (rol === 'estado') {
+      const nuevo = valor || '';
       if (/disparo/i.test(nuevo) && !/disparo/i.test(st.estado)) lanzar();
       st.estado = nuevo;
+    } else if (MOVS.includes(rol)) { st[rol] = x === 1 ? 1 : 0; }
+    else if (!isNaN(x)) {
+      st[rol] = x;
+      if (rol === 'elevSet' && !arrastrandoE) { $('slElev').value = Math.round(x); $('slElevTxt').textContent = Math.round(x) + '°'; }
+      if (rol === 'rotSet' && !arrastrandoR) { $('slRot').value = Math.round(x); $('slRotTxt').textContent = Math.round(x) + '°'; }
     }
     st.t = Date.now();
   }
+  function aplicar(v) { if (v && typeof v.index === 'number') aplicarRol(rolDe[v.index], v.value); }
 
   const bridge = typeof BlynkBridge !== 'undefined' ? new BlynkBridge() : null;
+  function enviar(rol, valor) {
+    if (!bridge) { aplicarRol(rol, String(valor)); return; }
+    try { bridge.sendValue({ pin: PIN[rol] }, String(valor)); }
+    catch (e) { try { bridge.sendValue(indiceDe[rol], String(valor)); } catch (e2) { bridge.log('No se pudo enviar ' + PIN[rol]); } }
+  }
+
   if (bridge) {
     bridge.setCallbacks({ onValueUpdated: aplicar, onError: m => bridge.log('Gemelo: ' + m) });
-    bridge.getValues().then(lista => (lista || []).forEach(aplicar)).catch(() => {});
+    //Busca cada datastream por su pin para no depender del orden en que se agregaron
+    Promise.all(ORDEN.map(rol => {
+      let p;
+      try { p = bridge.getValue({ pin: PIN[rol] }); } catch (e) { return null; }
+      return p.then(v => {
+        if (v && typeof v.index === 'number') {
+          for (const k in rolDe) if (rolDe[k] === rol) delete rolDe[k];
+          rolDe[v.index] = rol; indiceDe[rol] = v.index;
+          if (v.value !== null && v.value !== undefined) aplicarRol(rol, v.value);
+        }
+      }).catch(() => null);
+    })).then(() => bridge.getValues()).then(lista => (lista || []).forEach(aplicar)).catch(() => {});
   } else {
+    $('nota').textContent = 'Modo demostración (fuera de Blynk). Teclado: ↑ ↓ o W S para avanzar y retroceder, ← → o A D para girar, barra espaciadora para disparar.';
     iniciarDemo();
   }
 
+  //------------------ Mando ------------------
+  function mover(rol, on) {
+    if (presionado[rol] === on) return;
+    presionado[rol] = on;
+    document.querySelector(`[data-mov="${rol}"]`).classList.toggle('on', on);
+    enviar(rol, on ? 1 : 0);
+  }
+  function soltarTodo() { MOVS.forEach(r => mover(r, false)); }
+  document.querySelectorAll('[data-mov]').forEach(b => {
+    const rol = b.dataset.mov;
+    b.addEventListener('pointerdown', e => { e.preventDefault(); try { b.setPointerCapture(e.pointerId); } catch (x) {} mover(rol, true); });
+    ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(ev => b.addEventListener(ev, () => mover(rol, false)));
+    b.addEventListener('contextmenu', e => e.preventDefault());
+  });
+  const TECLAS = { ArrowUp: 'adel', KeyW: 'adel', ArrowDown: 'atras', KeyS: 'atras', ArrowLeft: 'izq', KeyA: 'izq', ArrowRight: 'der', KeyD: 'der' };
+  window.addEventListener('keydown', e => {
+    if (e.target && e.target.tagName === 'INPUT') return;
+    if (TECLAS[e.code]) { e.preventDefault(); mover(TECLAS[e.code], true); }
+    else if (e.code === 'Space' && !e.repeat) { e.preventDefault(); disparar(); }
+  });
+  window.addEventListener('keyup', e => { if (TECLAS[e.code]) mover(TECLAS[e.code], false); });
+  window.addEventListener('blur', soltarTodo); //Si se cambia de ventana, el vehículo se detiene
+  document.addEventListener('visibilitychange', () => { if (document.hidden) soltarTodo(); });
+
+  function disparar() {
+    const b = $('btnFuego'); b.classList.add('on'); setTimeout(() => b.classList.remove('on'), 200);
+    if (bridge) { enviar('disp', 1); setTimeout(() => enviar('disp', 0), 300); }
+    else { demo.disparo = true; }
+  }
+  $('btnFuego').addEventListener('click', disparar);
+
+  const slE = $('slElev'), slR = $('slRot');
+  slE.addEventListener('input', () => { arrastrandoE = true; $('slElevTxt').textContent = slE.value + '°'; st.elevSet = +slE.value; });
+  slE.addEventListener('change', () => { arrastrandoE = false; enviar('elevSet', slE.value); });
+  slR.addEventListener('input', () => { arrastrandoR = true; $('slRotTxt').textContent = slR.value + '°'; st.rotSet = +slR.value; });
+  slR.addEventListener('change', () => { arrastrandoR = false; enviar('rotSet', slR.value); });
+
   //------------------ Modo demostración ------------------
   function iniciarDemo() {
-    $('demo').classList.add('on');
-    let e = 0, r = 0, ultimo = performance.now();
-    const leer = () => { st.elevSet = +$('dE').value; st.rotSet = +$('dR').value; };
-    $('dE').oninput = leer; $('dR').oninput = leer; leer();
-    $('dF').onclick = () => { st.estado = '¡Disparo!'; lanzar(); setTimeout(() => (st.estado = ''), 1200); };
+    let e = 0, r = 0, ultimo = performance.now(), tDisp = 0;
+    st.elevSet = 0; st.rotSet = 0;
     (function paso(t) {
       const dt = Math.min((t - ultimo) / 1000, 0.1); ultimo = t;
+      const conduce = MOVS.some(k => st[k]);
       e += Math.max(-45 * dt, Math.min(45 * dt, st.elevSet - e));
-      const er = st.rotSet - r; r += Math.sign(er) * Math.min(Math.abs(er), (Math.abs(er) > 2.5 ? 70 : 0) * dt);
+      const er = st.rotSet - r;
+      if (!conduce) r += Math.sign(er) * Math.min(Math.abs(er), (Math.abs(er) > 2.5 ? 70 : 0) * dt);
       st.elev = e; st.rot = r; st.t = Date.now();
-      if (!/disparo/i.test(st.estado)) st.estado = (Math.abs(st.elevSet - e) < 1.5 && Math.abs(st.rotSet - r) < 2.5) ? 'SIM | Listo para disparar' : 'SIM | Apuntando';
+      const listo = Math.abs(st.elevSet - e) < 1.5 && Math.abs(st.rotSet - r) < 2.5;
+      if (demo.disparo && listo) { demo.disparo = false; lanzar(); tDisp = t; }
+      st.estado = t - tDisp < 1000 ? 'SIM | ¡Disparo!' : conduce ? 'SIM | Desplazándose' : demo.disparo ? 'SIM | Apuntando para disparar' : listo ? 'SIM | Listo para disparar' : 'SIM | Apuntando';
       requestAnimationFrame(paso);
     })(ultimo);
   }
@@ -226,22 +324,13 @@
     const t = (vy + Math.sqrt(vy * vy + 2 * G * ALTURA)) / G;
     return { R: vx * t, t, vx, vy };
   }
-  function lanzar() { disparo = { t0: performance.now(), elev: vis.elev, rot: vis.rot }; }
-
-  //------------------ Animación ------------------
-  const fmt = (x, d = 1) => x === null ? '—' : x.toFixed(d) + '°';
-  function arco(rot) {
-    const r = 112, a = Math.max(0, Math.min(359.9, rot)) * Math.PI / 180;
-    if (rot < 0.5) return '';
-    return `M 150 ${160 - r} A ${r} ${r} 0 ${rot > 180 ? 1 : 0} 1 ${150 + r * Math.sin(a)} ${160 - r * Math.cos(a)}`;
-  }
+  function lanzar() { disparo = { t0: performance.now(), elev: vis.elev }; }
   function dibujarTray(eDeg) {
     const s = $('svgTray'); s.innerHTML = '';
-    const { R, t, vx, vy } = alcance(eDeg), escX = 380 / 3.5, escY = 58 / 1.0, y0 = 64;
+    const { R, t, vx, vy } = alcance(eDeg), escX = 380 / 3.5, escY = 58, y0 = 64;
     el('line', { x1: 10, y1: y0, x2: 395, y2: y0, stroke: 'var(--linea)', 'stroke-width': 2 }, s);
-    for (let m = 0; m <= 3.5; m += 0.5) {
+    for (let m = 0; m <= 3.5; m += 0.5)
       el('line', { x1: 10 + m * escX, y1: y0, x2: 10 + m * escX, y2: y0 - (m % 1 === 0 ? 6 : 3), stroke: 'var(--tenue)', 'stroke-width': 1.5 }, s);
-    }
     let d = '';
     for (let i = 0; i <= 40; i++) {
       const tt = t * i / 40, x = vx * tt, y = ALTURA + vy * tt - G * tt * tt / 2;
@@ -252,10 +341,32 @@
     $('alcance').textContent = R.toFixed(2) + ' m';
   }
 
+  //------------------ Animación ------------------
+  const fmt = (x, d = 1) => x === null ? '—' : x.toFixed(d) + '°';
+  function arco(rot) {
+    const r = 112, a = Math.max(0, Math.min(359.9, rot)) * Math.PI / 180;
+    if (rot < 0.5) return '';
+    return `M 150 ${160 - r} A ${r} ${r} 0 ${rot > 180 ? 1 : 0} 1 ${150 + r * Math.sin(a)} ${160 - r * Math.cos(a)}`;
+  }
+  function ruedas() { //Mismo reparto que el firmware: lo que hace cada lado del vehículo
+    const lin = (st.adel || presionado.adel ? 1 : 0) - (st.atras || presionado.atras ? 1 : 0);
+    const giro = (st.der || presionado.der ? 1 : 0) - (st.izq || presionado.izq ? 1 : 0);
+    let i, d;
+    if (lin !== 0) { i = lin + 0.5 * giro; d = lin - 0.5 * giro; } else { i = 0.8 * giro; d = -0.8 * giro; }
+    return [Math.max(-1, Math.min(1, i)), Math.max(-1, Math.min(1, d))];
+  }
+  function flecha(id, cx, v) {
+    const g = $(id);
+    g.setAttribute('opacity', Math.min(1, Math.abs(v) * 1.2).toFixed(2));
+    g.setAttribute('transform', v < 0 ? `rotate(180 ${cx} 159)` : '');
+  }
+
   let ultimaTray = -1;
   function cuadro(ahora) {
     const k = 0.18;
     for (const c of ['elev', 'rot', 'elevSet', 'rotSet']) if (st[c] !== null) vis[c] += (st[c] - vis[c]) * k;
+    const [ri, rd] = ruedas(); vis.rI += (ri - vis.rI) * 0.25; vis.rD += (rd - vis.rD) * 0.25;
+    flecha('flechaI', 62, vis.rI); flecha('flechaD', 238, vis.rD);
     $('canonSup').setAttribute('transform', `rotate(${vis.rot.toFixed(2)} 150 160)`);
     $('fantasmaSup').setAttribute('transform', `rotate(${vis.rotSet.toFixed(2)} 150 160)`);
     $('arcoRot').setAttribute('d', arco(vis.rot));
@@ -279,7 +390,6 @@
     $('punto').className = 'punto' + (vivo ? ' on' : '');
     $('txtConexion').textContent = !st.t ? 'Esperando datos' : vivo ? 'Recibiendo datos' : 'Sin cambios recientes';
 
-    //Pelota saliendo por la boca del cañón (vista lateral)
     const bala = $('bala');
     if (disparo) {
       const tt = (ahora - disparo.t0) / 1000, a = disparo.elev * Math.PI / 180, esc = 300;
@@ -291,7 +401,7 @@
     requestAnimationFrame(cuadro);
   }
   requestAnimationFrame(cuadro);
-})();
+}
 </script>
 </body>
 </html>
