@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Gemelo virtual - Cañón Lab 4</title>
+<!--
+  GEMELO VIRTUAL DEL CAÑÓN (Widget HTML de Blynk)
+  Pegar este archivo completo en: Blynk.Console > Developer Zone > Templates > (plantilla) >
+  Web Dashboard > arrastrar "HTML" > Start from scratch.
+  En la configuración del widget, agregar los datastreams EN ESTE ORDEN (el índice importa):
+    0: V6 Elevación medida   1: V7 Rotación medida   2: V4 Elevación deseada
+    3: V5 Rotación deseada   4: V11 Estado
+  Fuera de Blynk (abriendo el archivo en el navegador) funciona en modo demostración.
+-->
+<style>
+  :root{--fondo:#0f1b2d;--panel:#16243a;--linea:#2a3b55;--texto:#e0e6ed;--tenue:#8296af;
+        --cuerpo:#223046;--torre:#3d5a80;--torre2:#294060;--canon:#e0e6ed;--naranja:#f4a259;--verde:#5cc8a1;--rojo:#e76f6f}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--fondo);color:var(--texto);
+            font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+  .app{display:flex;flex-direction:column;height:100%;padding:12px;gap:10px;min-height:420px}
+  header{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  h1{font-size:15px;margin:0;font-weight:650;letter-spacing:.2px;flex:1;min-width:160px}
+  .chip{font-size:12px;padding:4px 10px;border-radius:999px;background:var(--panel);border:1px solid var(--linea);white-space:nowrap}
+  .chip.listo{border-color:var(--verde);color:var(--verde)}
+  .chip.mov{border-color:var(--naranja);color:var(--naranja)}
+  .chip.error{border-color:var(--rojo);color:var(--rojo)}
+  .punto{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px;background:var(--tenue);vertical-align:1px}
+  .punto.on{background:var(--verde)}
+  .vistas{display:grid;grid-template-columns:1fr 1fr;gap:10px;flex:1;min-height:0}
+  @media (max-width:560px){.vistas{grid-template-columns:1fr}}
+  .vista{background:var(--panel);border:1px solid var(--linea);border-radius:12px;padding:8px 10px;display:flex;flex-direction:column;min-height:0}
+  .vista h2{font-size:12px;font-weight:600;color:var(--tenue);margin:0 0 4px;text-transform:uppercase;letter-spacing:.6px}
+  .vista svg{flex:1;width:100%;min-height:150px}
+  .datos{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--tenue);margin-top:4px}
+  .datos b{display:block;font-size:20px;color:var(--texto);font-variant-numeric:tabular-nums;font-weight:650}
+  .datos .des b{color:var(--naranja)}
+  .datos .err b{font-size:14px;margin-top:5px}
+  .tray{background:var(--panel);border:1px solid var(--linea);border-radius:12px;padding:6px 10px}
+  .tray .fila{display:flex;justify-content:space-between;font-size:12px;color:var(--tenue)}
+  .tray .lienzo{position:relative;height:70px}
+  .tray svg{width:100%;height:70px;display:block}
+  .tray svg *{vector-effect:non-scaling-stroke}
+  .tray .marca{position:absolute;bottom:4px;font-size:10px;color:var(--tenue);transform:translateX(-50%)}
+  .tray .caida{position:absolute;bottom:2px;width:9px;height:9px;border-radius:50%;background:var(--naranja);transform:translateX(-50%)}
+  .demo{display:none;gap:12px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--tenue);background:var(--panel);
+        border:1px dashed var(--linea);border-radius:12px;padding:8px 10px}
+  .demo.on{display:flex}
+  .demo label{display:flex;align-items:center;gap:6px}
+  .demo input{accent-color:var(--naranja)}
+  .demo button{background:var(--naranja);color:#1b1b1b;border:0;border-radius:8px;padding:6px 12px;font-weight:700;cursor:pointer}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Gemelo virtual · Cañón Lab 4</h1>
+    <span class="chip" id="conexion"><span class="punto" id="punto"></span><span id="txtConexion">Esperando datos</span></span>
+    <span class="chip" id="estado">—</span>
+  </header>
+
+  <div class="vistas">
+    <section class="vista">
+      <h2>Vista superior · rotación</h2>
+      <svg id="svgSup" viewBox="0 0 300 318" aria-label="Vista superior del vehículo y la torreta">
+        <g id="anillo"></g>
+        <g id="ruedasSup"></g>
+        <rect x="95" y="80" width="110" height="160" rx="16" fill="var(--cuerpo)" stroke="var(--linea)" stroke-width="3"/>
+        <path id="arcoRot" fill="none" stroke="var(--naranja)" stroke-width="3" stroke-opacity=".45"/>
+        <g id="fantasmaSup" opacity=".85">
+          <rect x="143" y="62" width="14" height="98" rx="3" fill="none" stroke="var(--naranja)" stroke-width="2" stroke-dasharray="5 4"/>
+        </g>
+        <g id="canonSup">
+          <rect x="142" y="58" width="16" height="102" rx="3" fill="var(--canon)" stroke="#78879b" stroke-width="2"/>
+          <rect x="138" y="54" width="24" height="12" rx="2" fill="var(--naranja)"/>
+        </g>
+        <circle cx="150" cy="160" r="38" fill="var(--torre)" stroke="var(--torre2)" stroke-width="4"/>
+        <circle cx="150" cy="160" r="6" fill="var(--naranja)"/>
+      </svg>
+      <div class="datos">
+        <div>Medida<b id="rotMed">—</b></div>
+        <div class="des">Deseada<b id="rotDes">—</b></div>
+        <div class="err">Error<b id="rotErr">—</b></div>
+      </div>
+    </section>
+
+    <section class="vista">
+      <h2>Vista lateral · elevación</h2>
+      <svg id="svgLat" viewBox="0 0 300 300" aria-label="Vista lateral del vehículo y el cañón">
+        <line x1="10" y1="262" x2="290" y2="262" stroke="var(--linea)" stroke-width="3"/>
+        <g id="transportador"></g>
+        <rect x="50" y="192" width="190" height="44" rx="10" fill="var(--cuerpo)" stroke="var(--linea)" stroke-width="3"/>
+        <circle cx="95" cy="240" r="21" fill="#14141a" stroke="var(--tenue)" stroke-width="3"/>
+        <circle cx="195" cy="240" r="21" fill="#14141a" stroke="var(--tenue)" stroke-width="3"/>
+        <rect x="118" y="168" width="54" height="26" rx="5" fill="var(--torre)" stroke="var(--torre2)" stroke-width="3"/>
+        <g id="fantasmaLat" opacity=".85">
+          <rect x="125" y="149" width="112" height="14" rx="3" fill="none" stroke="var(--naranja)" stroke-width="2" stroke-dasharray="5 4"/>
+        </g>
+        <g id="canonLat">
+          <rect x="122" y="148" width="116" height="16" rx="3" fill="var(--canon)" stroke="#78879b" stroke-width="2"/>
+          <rect x="228" y="144" width="12" height="24" rx="2" fill="var(--naranja)"/>
+        </g>
+        <circle cx="145" cy="156" r="13" fill="var(--torre)" stroke="var(--torre2)" stroke-width="3"/>
+        <circle cx="145" cy="156" r="4" fill="var(--naranja)"/>
+        <circle id="bala" r="7" fill="#fff" stroke="var(--naranja)" stroke-width="2" visibility="hidden"/>
+      </svg>
+      <div class="datos">
+        <div>Medida<b id="eleMed">—</b></div>
+        <div class="des">Deseada<b id="eleDes">—</b></div>
+        <div class="err">Error<b id="eleErr">—</b></div>
+      </div>
+    </section>
+  </div>
+
+  <section class="tray">
+    <div class="fila"><span>Trayectoria estimada de la pelota (v₀ = <span id="v0txt"></span> m/s)</span><span>Alcance ≈ <b id="alcance" style="color:var(--texto)">—</b></span></div>
+    <div class="lienzo" id="lienzo"><svg id="svgTray" viewBox="0 0 400 70" preserveAspectRatio="none"></svg><span class="caida" id="caida"></span></div>
+  </section>
+
+  <div class="demo" id="demo">
+    <span>Modo demostración (fuera de Blynk):</span>
+    <label>Elevación <input type="range" id="dE" min="0" max="90" value="45"></label>
+    <label>Rotación <input type="range" id="dR" min="0" max="359" value="120"></label>
+    <button id="dF" type="button">Disparar</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  //------------------ Ajustes ------------------
+  const V0 = 4.0;        //Velocidad de salida de la pelota (m/s): mídanla y ajústenla
+  const ALTURA = 0.15;   //Altura de la boca del cañón sobre el piso (m)
+  const G = 9.81;
+  //Índices de los datastreams en la configuración del widget
+  const I_ELEV = 0, I_ROT = 1, I_ELEV_SET = 2, I_ROT_SET = 3, I_ESTADO = 4;
+
+  const $ = id => document.getElementById(id);
+  const NS = 'http://www.w3.org/2000/svg';
+  const st = { elev: null, rot: null, elevSet: null, rotSet: null, estado: '', t: 0 };
+  const vis = { elev: 0, rot: 0, elevSet: 0, rotSet: 0 };
+  let disparo = null;
+
+  //------------------ Dibujo estático ------------------
+  function el(tag, attrs, padre) {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    padre.appendChild(e); return e;
+  }
+  (function anillo() {
+    const g = $('anillo');
+    el('circle', { cx: 150, cy: 160, r: 128, fill: 'none', stroke: 'var(--linea)', 'stroke-width': 2 }, g);
+    for (let a = 0; a < 360; a += 15) {
+      const r = a * Math.PI / 180, l = a % 90 === 0 ? 12 : 6;
+      el('line', { x1: 150 + 128 * Math.sin(r), y1: 160 - 128 * Math.cos(r), x2: 150 + (128 - l) * Math.sin(r), y2: 160 - (128 - l) * Math.cos(r),
+                   stroke: 'var(--tenue)', 'stroke-width': a % 90 === 0 ? 2.5 : 1.5 }, g);
+    }
+    [[0, 'FRENTE'], [90, '90°'], [180, '180°'], [270, '270°']].forEach(([a, t]) => {
+      const r = a * Math.PI / 180, x = 150 + 143 * Math.sin(r), y = 160 - 143 * Math.cos(r) + 4;
+      const tx = el('text', { x, y, 'text-anchor': 'middle', 'font-size': a === 0 ? 10 : 11, fill: 'var(--tenue)', 'font-weight': 600 }, g);
+      tx.textContent = t;
+    });
+    const w = $('ruedasSup');
+    [[86, 96], [202, 96], [86, 186], [202, 186]].forEach(([x, y]) => el('rect', { x: x - 2, y, width: 16, height: 38, rx: 5, fill: '#14141a' }, w));
+  })();
+  (function transportador() {
+    const g = $('transportador'), cx = 145, cy = 156, R = 118;
+    el('path', { d: `M ${cx + R} ${cy} A ${R} ${R} 0 0 0 ${cx} ${cy - R}`, fill: 'none', stroke: 'var(--linea)', 'stroke-width': 2 }, g);
+    for (let a = 0; a <= 90; a += 10) {
+      const r = a * Math.PI / 180, l = a % 30 === 0 ? 12 : 6;
+      el('line', { x1: cx + R * Math.cos(r), y1: cy - R * Math.sin(r), x2: cx + (R - l) * Math.cos(r), y2: cy - (R - l) * Math.sin(r),
+                   stroke: 'var(--tenue)', 'stroke-width': a % 30 === 0 ? 2.5 : 1.5 }, g);
+      if (a % 30 === 0) {
+        const t = el('text', { x: cx + (R + 14) * Math.cos(r), y: cy - (R + 14) * Math.sin(r) + 4, 'text-anchor': 'middle', 'font-size': 11, fill: 'var(--tenue)', 'font-weight': 600 }, g);
+        t.textContent = a + '°';
+      }
+    }
+  })();
+  $('v0txt').textContent = V0.toFixed(1);
+  [1, 2, 3].forEach(m => { const t = document.createElement('span'); t.className = 'marca'; t.style.left = ((10 + m * 380 / 3.5) / 4) + '%'; t.style.bottom = '12px'; t.textContent = m + ' m'; $('lienzo').appendChild(t); });
+
+  //------------------ Datos ------------------
+  function aplicar(v) {
+    if (!v || typeof v.index !== 'number') return;
+    const x = parseFloat(v.value);
+    if (v.index === I_ELEV && !isNaN(x)) st.elev = x;
+    else if (v.index === I_ROT && !isNaN(x)) st.rot = x;
+    else if (v.index === I_ELEV_SET && !isNaN(x)) st.elevSet = x;
+    else if (v.index === I_ROT_SET && !isNaN(x)) st.rotSet = x;
+    else if (v.index === I_ESTADO) {
+      const nuevo = v.value || '';
+      if (/disparo/i.test(nuevo) && !/disparo/i.test(st.estado)) lanzar();
+      st.estado = nuevo;
+    }
+    st.t = Date.now();
+  }
+
+  const bridge = typeof BlynkBridge !== 'undefined' ? new BlynkBridge() : null;
+  if (bridge) {
+    bridge.setCallbacks({ onValueUpdated: aplicar, onError: m => bridge.log('Gemelo: ' + m) });
+    bridge.getValues().then(lista => (lista || []).forEach(aplicar)).catch(() => {});
+  } else {
+    iniciarDemo();
+  }
+
+  //------------------ Modo demostración ------------------
+  function iniciarDemo() {
+    $('demo').classList.add('on');
+    let e = 0, r = 0, ultimo = performance.now();
+    const leer = () => { st.elevSet = +$('dE').value; st.rotSet = +$('dR').value; };
+    $('dE').oninput = leer; $('dR').oninput = leer; leer();
+    $('dF').onclick = () => { st.estado = '¡Disparo!'; lanzar(); setTimeout(() => (st.estado = ''), 1200); };
+    (function paso(t) {
+      const dt = Math.min((t - ultimo) / 1000, 0.1); ultimo = t;
+      e += Math.max(-45 * dt, Math.min(45 * dt, st.elevSet - e));
+      const er = st.rotSet - r; r += Math.sign(er) * Math.min(Math.abs(er), (Math.abs(er) > 2.5 ? 70 : 0) * dt);
+      st.elev = e; st.rot = r; st.t = Date.now();
+      if (!/disparo/i.test(st.estado)) st.estado = (Math.abs(st.elevSet - e) < 1.5 && Math.abs(st.rotSet - r) < 2.5) ? 'SIM | Listo para disparar' : 'SIM | Apuntando';
+      requestAnimationFrame(paso);
+    })(ultimo);
+  }
+
+  //------------------ Física de la trayectoria ------------------
+  function alcance(eDeg) {
+    const a = eDeg * Math.PI / 180, vx = V0 * Math.cos(a), vy = V0 * Math.sin(a);
+    const t = (vy + Math.sqrt(vy * vy + 2 * G * ALTURA)) / G;
+    return { R: vx * t, t, vx, vy };
+  }
+  function lanzar() { disparo = { t0: performance.now(), elev: vis.elev, rot: vis.rot }; }
+
+  //------------------ Animación ------------------
+  const fmt = (x, d = 1) => x === null ? '—' : x.toFixed(d) + '°';
+  function arco(rot) {
+    const r = 112, a = Math.max(0, Math.min(359.9, rot)) * Math.PI / 180;
+    if (rot < 0.5) return '';
+    return `M 150 ${160 - r} A ${r} ${r} 0 ${rot > 180 ? 1 : 0} 1 ${150 + r * Math.sin(a)} ${160 - r * Math.cos(a)}`;
+  }
+  function dibujarTray(eDeg) {
+    const s = $('svgTray'); s.innerHTML = '';
+    const { R, t, vx, vy } = alcance(eDeg), escX = 380 / 3.5, escY = 58 / 1.0, y0 = 64;
+    el('line', { x1: 10, y1: y0, x2: 395, y2: y0, stroke: 'var(--linea)', 'stroke-width': 2 }, s);
+    for (let m = 0; m <= 3.5; m += 0.5) {
+      el('line', { x1: 10 + m * escX, y1: y0, x2: 10 + m * escX, y2: y0 - (m % 1 === 0 ? 6 : 3), stroke: 'var(--tenue)', 'stroke-width': 1.5 }, s);
+    }
+    let d = '';
+    for (let i = 0; i <= 40; i++) {
+      const tt = t * i / 40, x = vx * tt, y = ALTURA + vy * tt - G * tt * tt / 2;
+      d += (i ? ' L ' : 'M ') + (10 + x * escX).toFixed(1) + ' ' + (y0 - Math.max(0, y) * escY).toFixed(1);
+    }
+    el('path', { d, fill: 'none', stroke: 'var(--naranja)', 'stroke-width': 2, 'stroke-dasharray': '4 4' }, s);
+    $('caida').style.left = (Math.min(395, 10 + R * escX) / 4) + '%';
+    $('alcance').textContent = R.toFixed(2) + ' m';
+  }
+
+  let ultimaTray = -1;
+  function cuadro(ahora) {
+    const k = 0.18;
+    for (const c of ['elev', 'rot', 'elevSet', 'rotSet']) if (st[c] !== null) vis[c] += (st[c] - vis[c]) * k;
+    $('canonSup').setAttribute('transform', `rotate(${vis.rot.toFixed(2)} 150 160)`);
+    $('fantasmaSup').setAttribute('transform', `rotate(${vis.rotSet.toFixed(2)} 150 160)`);
+    $('arcoRot').setAttribute('d', arco(vis.rot));
+    $('canonLat').setAttribute('transform', `rotate(${(-vis.elev).toFixed(2)} 145 156)`);
+    $('fantasmaLat').setAttribute('transform', `rotate(${(-vis.elevSet).toFixed(2)} 145 156)`);
+    $('fantasmaSup').style.display = st.rotSet === null ? 'none' : '';
+    $('fantasmaLat').style.display = st.elevSet === null ? 'none' : '';
+
+    $('rotMed').textContent = fmt(st.rot); $('rotDes').textContent = fmt(st.rotSet, 0);
+    $('eleMed').textContent = fmt(st.elev); $('eleDes').textContent = fmt(st.elevSet, 0);
+    $('rotErr').textContent = st.rot !== null && st.rotSet !== null ? fmt(st.rotSet - st.rot) : '—';
+    $('eleErr').textContent = st.elev !== null && st.elevSet !== null ? fmt(st.elevSet - st.elev) : '—';
+
+    const e = Math.round((st.elev ?? 0) * 2) / 2;
+    if (e !== ultimaTray) { dibujarTray(Math.max(0, Math.min(90, e))); ultimaTray = e; }
+
+    const est = st.estado || '—', chip = $('estado');
+    chip.textContent = est;
+    chip.className = 'chip ' + (/error|falta/i.test(est) ? 'error' : /listo/i.test(est) ? 'listo' : est !== '—' ? 'mov' : '');
+    const vivo = st.t && Date.now() - st.t < 15000;
+    $('punto').className = 'punto' + (vivo ? ' on' : '');
+    $('txtConexion').textContent = !st.t ? 'Esperando datos' : vivo ? 'Recibiendo datos' : 'Sin cambios recientes';
+
+    //Pelota saliendo por la boca del cañón (vista lateral)
+    const bala = $('bala');
+    if (disparo) {
+      const tt = (ahora - disparo.t0) / 1000, a = disparo.elev * Math.PI / 180, esc = 300;
+      const bx = 145 + 95 * Math.cos(a) + V0 * Math.cos(a) * tt * esc / 4;
+      const by = 156 - 95 * Math.sin(a) - (V0 * Math.sin(a) * tt - G * tt * tt / 2) * esc / 4;
+      if (tt > 1.6 || bx > 310 || by > 262) { disparo = null; bala.setAttribute('visibility', 'hidden'); }
+      else { bala.setAttribute('cx', bx); bala.setAttribute('cy', by); bala.setAttribute('visibility', 'visible'); }
+    }
+    requestAnimationFrame(cuadro);
+  }
+  requestAnimationFrame(cuadro);
+})();
+</script>
+</body>
+</html>
